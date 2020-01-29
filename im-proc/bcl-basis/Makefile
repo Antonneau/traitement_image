@@ -10,7 +10,8 @@ BIN=\
 	extract-subimage\
 	extract-channel\
 	gray2color\
-	color2mean
+	color2mean\
+	normalize
 
 .PHONY: all
 all:$(BIN)
