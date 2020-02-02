@@ -16,7 +16,45 @@ void
 test_forward_backward(char* name)
 {
   fprintf(stderr, "test_forward_backward: ");
-  (void)name;
+  pnm img = pnm_load(name);
+  int cols = pnm_get_width(img);
+  int rows = pnm_get_height(img);
+
+  unsigned short *g_img = malloc(rows*cols*sizeof(unsigned short)); 
+  // Constructing the gray image
+  for (int j = 0; j < cols; j++){
+    for (int i = 0; i < rows; i++){
+      unsigned short redComponent = pnm_get_component(img, i, j, 0);
+      unsigned short greenComponent = pnm_get_component(img, i, j, 1);
+      unsigned short blueComponent = pnm_get_component(img, i, j, 2);
+      unsigned short component = (redComponent + greenComponent + blueComponent) / 3;
+      g_img[i + (rows*j)] = component; 
+    }
+  }
+  pnm_free(img);
+
+  fftw_complex *comp = forward(rows, cols, g_img);
+  free(g_img);
+  unsigned short *new_img = backward(rows, cols, comp);
+
+  pnm new_image = pnm_new(cols, rows, PnmRawPpm);
+  for (int j = 0; j < cols; j++){
+    for (int i = 0; i < rows; i++){
+      for (int chan = 0; chan <= 2; chan++){
+        pnm_set_component(new_image, i, j, 0, new_img[i + (rows*j)]);
+        pnm_set_component(new_image, i, j, 1, new_img[i + (rows*j)]);
+        pnm_set_component(new_image, i, j, 2, new_img[i + (rows*j)]);
+      } 
+    }
+  }
+  char *fileName;
+  strcat(fileName, "FB-");
+  strcat(fileName, name;
+  pnm_save(new_image, PnmRawPpm, fileName);
+
+  pnm_free(new_image);
+  free(new_img);
+  free(comp);
   fprintf(stderr, "OK\n");
 }
 
