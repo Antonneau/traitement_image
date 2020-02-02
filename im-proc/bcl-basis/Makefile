@@ -7,7 +7,11 @@ LDLIBS   = -lbcl
 
 BIN=\
 	test-bcl\
-	extract-subimage
+	extract-subimage\
+	extract-channel\
+	gray2color\
+	color2mean\
+	normalize
 
 .PHONY: all
 all:$(BIN)
