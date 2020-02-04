@@ -5,7 +5,7 @@
  */
 #include <stdlib.h>
 #include <stdio.h>
-
+#include <string.h>
 #include <fft.h>
 
 /**
@@ -44,12 +44,13 @@ test_forward_backward(char* name)
         pnm_set_component(new_image, i, j, 0, new_img[i + (rows*j)]);
         pnm_set_component(new_image, i, j, 1, new_img[i + (rows*j)]);
         pnm_set_component(new_image, i, j, 2, new_img[i + (rows*j)]);
+        //printf("%d\n", new_img[i + (rows*j)]);
       } 
     }
   }
-  char *fileName;
-  strcat(fileName, "FB-");
-  strcat(fileName, name;
+  char* nameimg = name + 8;
+  char *fileName = malloc((3+strlen(nameimg))*sizeof(char));
+  sprintf(fileName,"FB-%s",nameimg);
   pnm_save(new_image, PnmRawPpm, fileName);
 
   pnm_free(new_image);
