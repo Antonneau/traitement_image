@@ -14,3 +14,7 @@ im-proc/bcl-basis/newlena\.ppm
 im-proc/bcl-basis/test-bcl
 
 *.o
+
+*.ppm
+
+im-proc/fourier/test-fft

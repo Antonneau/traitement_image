@@ -13,7 +13,7 @@ forward(int rows, int cols, unsigned short* g_img)
   if (in == NULL || out == NULL){
     fprintf(stderr, "Cannot allocate more memory (in forward)\n");
     exit(EXIT_FAILURE);
-  } 
+  }
   // Initializing the complex image
   for(unsigned int i = 0; i < size; i++){
     fftw_complex c = g_img[i] + I*0; 
@@ -58,8 +58,8 @@ freq2spectra(int rows, int cols, fftw_complex* freq_repr, float* as, float* ps)
   unsigned int size = rows*cols;
 
   for(unsigned int i = 0; i < size; i++){
-    as[i] = creal(freq_repr[i]);
-    ps[i] = cimag(freq_repr[i]); 
+    as[i] = cabs(freq_repr[i]);
+    ps[i] = carg(freq_repr[i]); 
   } 
 }
 
@@ -69,6 +69,6 @@ spectra2freq(int rows, int cols, float* as, float* ps, fftw_complex* freq_repr)
   unsigned int size = rows*cols;
 
   for(unsigned int i = 0; i < size; i++){
-    freq_repr[i]= as[i]+ ps[i]*I;
+    freq_repr[i]= as[i] * cexp(I * ps[i]);
   } 
 }
