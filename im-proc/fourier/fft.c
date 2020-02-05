@@ -44,6 +44,7 @@ backward(int rows, int cols, fftw_complex* freq_repr)
   fftw_destroy_plan(plan);
 
   for(unsigned int i = 0; i < size; i++){
+    // Set the normalizing value to the gray-scaled image
     double real = creal(out[i])/(size);
     img[i] = (unsigned short)real; 
   } 

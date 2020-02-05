@@ -18,3 +18,5 @@ im-proc/bcl-basis/test-bcl
 *.ppm
 
 im-proc/fourier/test-fft
+
+.vs/

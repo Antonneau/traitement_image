@@ -89,7 +89,6 @@ test_forward_backward(char* name)
 
   pnm new_image = pnm_new(cols, rows, PnmRawPpm);
   set_comp(cols,rows,new_g_img,new_image);
-
   save_image(name,"FB-", new_image);
   
   free(new_g_img);
@@ -168,7 +167,6 @@ test_display(char* name)
 {
   fprintf(stderr, "test_display: ");
   
-  
   pnm img = pnm_load(name);
   int cols = pnm_get_width(img);
   int rows = pnm_get_height(img);
@@ -186,9 +184,12 @@ test_display(char* name)
   
   float amax= as[0];
 
-  for(int i=1;i<size;i++)
-    if(as[i]>amax) amax=as[i];
+  // Getting the maximum amp
+  for(int i=1; i<size; i++)
+    if(as[i]>amax) 
+      amax=as[i];
 
+  // Centering the frequencies
   float* ass = decenter(cols, rows, as);
   float* pss = decenter(cols, rows, ps);
 
@@ -197,19 +198,17 @@ test_display(char* name)
   for (int j = 0; j < cols; j++){
     for (int i = 0; i < rows; i++){
       for (int chan = 0; chan <= 2; chan++){
+        // Normalizing the values and pass them to the images
         short valas = (short) (pow(fabs(ass[i + (rows*j)])/amax,0.2)*255);
         pnm_set_component(new_image_amp, i, j, chan, valas);
-        
         pnm_set_component(new_image_phs, i, j, chan, (short) (pss[i + (rows*j)]));
       } 
-      //printf("%lf\n", ps[i + (rows*j)]);
     }
   }
 
   save_image(name,"AS-", new_image_amp);
   save_image(name,"PS-", new_image_phs);
   
-
   pnm_free(new_image_amp);
   pnm_free(new_image_phs);
   free(comp);
@@ -218,7 +217,6 @@ test_display(char* name)
   free(ass);
   free(pss);
   free(g_img);
-
 
   fprintf(stderr, "OK\n");
 }
@@ -234,7 +232,66 @@ void
 test_add_frequencies(char* name)
 {
   fprintf(stderr, "test_add_frequencies: ");
-  (void)name;
+    
+  pnm img = pnm_load(name);
+  int cols = pnm_get_width(img);
+  int rows = pnm_get_height(img);
+  int size = cols*rows;
+
+  unsigned short *g_img = malloc(rows*cols*sizeof(unsigned short));
+  generate_gray_image(cols, rows, img, g_img);
+  pnm_free(img);
+
+  fftw_complex *comp = forward(rows, cols, g_img);
+  
+  float* as = malloc(cols*rows*sizeof(float));
+  float* ps = malloc(cols*rows*sizeof(float));
+  freq2spectra(rows,cols,comp,as,ps);
+  
+  float amax= as[0];
+
+  for(int i=1; i<size; i++)
+    if(as[i]>amax) 
+      amax=as[i];
+
+  float* new_as = malloc(cols*rows*sizeof(float));
+  for(int i = 0; i < size; i++){
+     // Asin(2pif + phi);
+     // The new amplitude list, using a sinusoidal function
+     new_as[i] = (as[i]*0.25*amax)*sin(2*pi*8 + ps[i]);
+  }
+
+  float* new_as_cen = decenter(cols, rows, new_as);
+
+  pnm new_image_amp = pnm_new(cols, rows, PnmRawPpm);
+  for (int j = 0; j < cols; j++){
+    for (int i = 0; i < rows; i++){
+      for (int chan = 0; chan <= 2; chan++){
+        short valas = (short) (pow(fabs(new_as_cen[i + (rows*j)])/amax,0.2)*255);
+        pnm_set_component(new_image_amp, i, j, chan, valas);
+      } 
+    }
+  }
+
+  spectra2freq(rows, cols, new_as, ps, comp);
+  g_img = backward(rows, cols, comp);
+  pnm new_image = pnm_new(cols, rows, PnmRawPpm);
+  set_comp(cols, rows, g_img, new_image);
+
+  // The new gray-scaled image with the frequencies modification
+  save_image(name, "FREQ-", new_image);
+  // The frequency image.
+  save_image(name, "FAS-", new_image_amp);
+  
+  pnm_free(new_image_amp);
+  pnm_free(new_image);
+  free(comp);
+  free(as);
+  free(ps);
+  free(new_as);
+  free(new_as_cen);
+  free(g_img);
+
   fprintf(stderr, "OK\n");
 }
 
