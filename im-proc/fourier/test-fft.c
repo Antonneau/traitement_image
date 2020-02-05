@@ -11,7 +11,7 @@
 #include <math.h>
 
 /**
- * @brief generate a gray-scale image
+ * @brief generates a gray-scale image
  * @param cols the number of columns of the input image
  * @param rows the number of lines of the input image
  * @param ims the input image
@@ -34,7 +34,22 @@ generate_gray_image(int cols, int rows, pnm ims, unsigned short *imd)
 }
 
 /**
- * @brief Reconstruct the gray-scale image from its list
+ * @brief Saves an image
+ * @param name the image name
+ * @param prefix the prefix of the image name
+ * @param imd the image to save
+ * @return The offset (index where the filename is in the string)
+ */
+void
+save_image(char *name, char* prefix, pnm imd){
+  char* nameimg = base_name(name);
+  char fileName[strlen(prefix)+strlen(nameimg)];
+  sprintf(fileName,"%s%s",prefix,nameimg);
+  pnm_save(imd, PnmRawPpm, fileName);
+}
+
+/**
+ * @brief Reconstructs the gray-scale image from its list
  * @param cols the number of columns of the input image
  * @param rows the number of lines of the input image
  * @param ims the input list of gray pixels
@@ -44,13 +59,10 @@ generate_gray_image(int cols, int rows, pnm ims, unsigned short *imd)
 void
 set_comp(int cols, int rows, unsigned short* ims, pnm imd)
 {
-  for (int j = 0; j < cols; j++){
-    for (int i = 0; i < rows; i++){
-      for (int chan = 0; chan <= 2; chan++){
+  for (int j = 0; j < cols; j++)
+    for (int i = 0; i < rows; i++)
+      for (int chan = 0; chan <= 2; chan++)
         pnm_set_component(imd, i, j, chan, ims[i + (rows*j)]);
-      } 
-    }
-  }
 }
 
 /**
@@ -71,20 +83,16 @@ test_forward_backward(char* name)
   pnm_free(img);
 
   fftw_complex *comp = forward(rows, cols, g_img);
-  unsigned short *new_img = backward(rows, cols, comp);
+  unsigned short *new_g_img = backward(rows, cols, comp);
 
   free(g_img);
 
   pnm new_image = pnm_new(cols, rows, PnmRawPpm);
-  set_comp(cols,rows,new_img,new_image);
+  set_comp(cols,rows,new_g_img,new_image);
 
-  char* nameimg = name + 8;
-  char *fileName = malloc((3+strlen(nameimg))*sizeof(char));
-  sprintf(fileName,"FB-%s",nameimg);
-  pnm_save(new_image, PnmRawPpm, fileName);
+  save_image(name,"FB-", new_image);
   
-  free(fileName);
-  free(new_img);
+  free(new_g_img);
   free(comp);
   pnm_free(new_image);
   
@@ -115,22 +123,18 @@ test_reconstruction(char* name)
   freq2spectra(rows,cols,comp,as,ps);
   spectra2freq(rows,cols,as,ps,comp);
 
-  unsigned short *new_img = backward(rows, cols, comp);
+  unsigned short *new_g_img = backward(rows, cols, comp);
 
   pnm new_image = pnm_new(cols, rows, PnmRawPpm);
-  set_comp(cols,rows,new_img,new_image);
+  set_comp(cols,rows,new_g_img,new_image);
 
-  char* nameimg = name + 8;
-  char *fileName = malloc((8+strlen(nameimg))*sizeof(char));
-  sprintf(fileName,"FB-ASPS-%s",nameimg);
-  pnm_save(new_image, PnmRawPpm, fileName);
+  save_image(name,"FB-ASPS-", new_image);
 
   pnm_free(new_image);
   free(comp);
   free(as);
   free(ps);
   free(g_img);
-  free(fileName);
   fprintf(stderr, "OK\n");
 }
 
@@ -188,32 +192,29 @@ test_display(char* name)
   float* ass = decenter(cols, rows, as);
   float* pss = decenter(cols, rows, ps);
 
-  pnm new_image1 = pnm_new(cols, rows, PnmRawPpm);
-  pnm new_image2 = pnm_new(cols, rows, PnmRawPpm);
+  pnm new_image_amp = pnm_new(cols, rows, PnmRawPpm);
+  pnm new_image_phs = pnm_new(cols, rows, PnmRawPpm);
   for (int j = 0; j < cols; j++){
     for (int i = 0; i < rows; i++){
       for (int chan = 0; chan <= 2; chan++){
         short valas = (short) (pow(fabs(ass[i + (rows*j)])/amax,0.2)*255);
-        pnm_set_component(new_image1, i, j, chan, valas);
+        pnm_set_component(new_image_amp, i, j, chan, valas);
         
-        pnm_set_component(new_image2, i, j, chan, (short) (pss[i + (rows*j)]));
+        pnm_set_component(new_image_phs, i, j, chan, (short) (pss[i + (rows*j)]));
       } 
-      printf("%lf\n", ps[i + (rows*j)]);
+      //printf("%lf\n", ps[i + (rows*j)]);
     }
   }
 
-  char* nameimg = name + 8;
-  char *fileName = malloc((3+strlen(nameimg))*sizeof(char));
-  sprintf(fileName,"AS-%s",nameimg);
-  pnm_save(new_image1, PnmRawPpm, fileName);
+  save_image(name,"AS-", new_image_amp);
+  save_image(name,"PS-", new_image_phs);
+  
 
-  sprintf(fileName,"PS-%s",nameimg);
-  pnm_save(new_image2, PnmRawPpm, fileName);
-
-  pnm_free(new_image1);
-  pnm_free(new_image2);
+  pnm_free(new_image_amp);
+  pnm_free(new_image_phs);
   free(comp);
-  free(fileName);
+  free(as);
+  free(ps);
   free(ass);
   free(pss);
   free(g_img);

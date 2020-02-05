@@ -70,5 +70,5 @@ spectra2freq(int rows, int cols, float* as, float* ps, fftw_complex* freq_repr)
 
   for(unsigned int i = 0; i < size; i++){
     freq_repr[i]= as[i] * cexp(I * ps[i]);
-  } 
+  }
 }
