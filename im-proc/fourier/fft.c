@@ -24,6 +24,7 @@ forward(int rows, int cols, unsigned short* g_img)
   fftw_execute(plan);
 
   fftw_destroy_plan(plan);
+  fftw_cleanup();
   free(in);
   return out;
 }
@@ -42,11 +43,15 @@ backward(int rows, int cols, fftw_complex* freq_repr)
   fftw_plan plan = fftw_plan_dft_2d(rows, cols, freq_repr, out, FFTW_BACKWARD, FFTW_ESTIMATE);
   fftw_execute(plan);
   fftw_destroy_plan(plan);
+  fftw_cleanup();
 
   for(unsigned int i = 0; i < size; i++){
     // Set the normalizing value to the gray-scaled image
     double real = creal(out[i])/(size);
-    img[i] = (unsigned short)real; 
+    //if(real <0.0) printf("anto a raison ");
+    if(real <0) img[i]=0;
+    else if (real > 255) img[i] = 255;
+    else img[i] = (unsigned short) real; 
   } 
 
   free(out);

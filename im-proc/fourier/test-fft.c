@@ -7,7 +7,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <fft.h>
-#include <assert.h>
 #include <math.h>
 
 /**
@@ -46,6 +45,7 @@ save_image(char *name, char* prefix, pnm imd){
   char fileName[strlen(prefix)+strlen(nameimg)];
   sprintf(fileName,"%s%s",prefix,nameimg);
   pnm_save(imd, PnmRawPpm, fileName);
+  free(nameimg);
 }
 
 /**
@@ -115,6 +115,7 @@ test_reconstruction(char* name)
   pnm_free(img);
 
   fftw_complex *comp = forward(rows, cols, g_img);
+  free(g_img);
   
   float* as = malloc(cols*rows*sizeof(float));
   float* ps = malloc(cols*rows*sizeof(float));
@@ -122,18 +123,19 @@ test_reconstruction(char* name)
   freq2spectra(rows,cols,comp,as,ps);
   spectra2freq(rows,cols,as,ps,comp);
 
+  free(as);
+  free(ps);
+
   unsigned short *new_g_img = backward(rows, cols, comp);
+
+  free(comp);
 
   pnm new_image = pnm_new(cols, rows, PnmRawPpm);
   set_comp(cols,rows,new_g_img,new_image);
-
   save_image(name,"FB-ASPS-", new_image);
 
+  free(new_g_img);
   pnm_free(new_image);
-  free(comp);
-  free(as);
-  free(ps);
-  free(g_img);
   fprintf(stderr, "OK\n");
 }
 
@@ -146,15 +148,13 @@ test_reconstruction(char* name)
  */
 float* decenter(int cols, int rows, float *tab){
   float *tmp = malloc(cols*rows*sizeof(float));
-  for (int j = 0; j < cols/2; j++){
+  for (int j = 0; j < cols/2; j++)
     for (int i = 0; i < rows/2; i++){
       tmp[i       + rows*j          ] = tab[i+rows/2+ rows*(j+cols/2) ];
       tmp[i+rows/2+ rows*j          ] = tab[i       + rows*(j+cols/2) ];
       tmp[i       + rows*(j+cols/2) ] = tab[i+rows/2+ rows*j          ];
       tmp[i+rows/2+ rows*(j+cols/2) ] = tab[i       + rows*j          ];
       }
-  }
-  free(tab);
   return tmp;
 }
 
@@ -177,10 +177,14 @@ test_display(char* name)
   pnm_free(img);
 
   fftw_complex *comp = forward(rows, cols, g_img);
+  free(g_img);
   
   float* as = malloc(cols*rows*sizeof(float));
   float* ps = malloc(cols*rows*sizeof(float));
+
   freq2spectra(rows,cols,comp,as,ps);
+
+  free(comp);
   
   float amax= as[0];
 
@@ -190,8 +194,11 @@ test_display(char* name)
       amax=as[i];
 
   // Centering the frequencies
-  float* ass = decenter(cols, rows, as);
-  float* pss = decenter(cols, rows, ps);
+  float* cas = decenter(cols, rows, as);
+  float* cps = decenter(cols, rows, ps);
+
+  free(as);
+  free(ps);
 
   pnm new_image_amp = pnm_new(cols, rows, PnmRawPpm);
   pnm new_image_phs = pnm_new(cols, rows, PnmRawPpm);
@@ -199,24 +206,21 @@ test_display(char* name)
     for (int i = 0; i < rows; i++){
       for (int chan = 0; chan <= 2; chan++){
         // Normalizing the values and pass them to the images
-        short valas = (short) (pow(fabs(ass[i + (rows*j)])/amax,0.2)*255);
+        short valas = (short) (pow(fabs(cas[i + (rows*j)])/amax,0.2)*255);
         pnm_set_component(new_image_amp, i, j, chan, valas);
-        pnm_set_component(new_image_phs, i, j, chan, (short) (pss[i + (rows*j)]));
+        pnm_set_component(new_image_phs, i, j, chan, (short) (cps[i + (rows*j)]));
       } 
     }
   }
+
+  free(cas);
+  free(cps);
 
   save_image(name,"AS-", new_image_amp);
   save_image(name,"PS-", new_image_phs);
   
   pnm_free(new_image_amp);
   pnm_free(new_image_phs);
-  free(comp);
-  free(as);
-  free(ps);
-  free(ass);
-  free(pss);
-  free(g_img);
 
   fprintf(stderr, "OK\n");
 }
@@ -243,38 +247,46 @@ test_add_frequencies(char* name)
   pnm_free(img);
 
   fftw_complex *comp = forward(rows, cols, g_img);
+
+  free(g_img);
   
   float* as = malloc(cols*rows*sizeof(float));
   float* ps = malloc(cols*rows*sizeof(float));
   freq2spectra(rows,cols,comp,as,ps);
   
   float amax= as[0];
-
   for(int i=1; i<size; i++)
     if(as[i]>amax) 
       amax=as[i];
 
-  float* new_as = malloc(cols*rows*sizeof(float));
-  for(int i = 0; i < size; i++){
-     // Asin(2pif + phi);
-     // The new amplitude list, using a sinusoidal function
-     new_as[i] = (as[i]*0.25*amax)*sin(2*pi*8 + ps[i]);
-  }
+  float* new_as_cen = decenter(cols, rows, as);
+  
+  new_as_cen[cols*(rows/2) + cols/2 + 8] = 0.25*amax;
+  new_as_cen[cols*(rows/2) + cols/2 - 8] = 0.25*amax;
+  new_as_cen[cols*(rows/2-8) + cols/2] = 0.25*amax;
+  new_as_cen[cols*(rows/2+8) + cols/2] = 0.25*amax;
 
-  float* new_as_cen = decenter(cols, rows, new_as);
+  free(as);
+
+  as = decenter(cols,rows,new_as_cen);
 
   pnm new_image_amp = pnm_new(cols, rows, PnmRawPpm);
-  for (int j = 0; j < cols; j++){
-    for (int i = 0; i < rows; i++){
+  for (int j = 0; j < cols; j++)
+    for (int i = 0; i < rows; i++)
       for (int chan = 0; chan <= 2; chan++){
-        short valas = (short) (pow(fabs(new_as_cen[i + (rows*j)])/amax,0.2)*255);
+        short valas = (short) (pow(fabs(new_as_cen[i + (rows*j)])/amax,0.)*255);
         pnm_set_component(new_image_amp, i, j, chan, valas);
       } 
-    }
-  }
 
-  spectra2freq(rows, cols, new_as, ps, comp);
+  free(new_as_cen);
+
+  spectra2freq(rows, cols, as, ps, comp);
+  free(as);
+  free(ps);
+  
   g_img = backward(rows, cols, comp);
+  free(comp);
+
   pnm new_image = pnm_new(cols, rows, PnmRawPpm);
   set_comp(cols, rows, g_img, new_image);
 
@@ -285,11 +297,6 @@ test_add_frequencies(char* name)
   
   pnm_free(new_image_amp);
   pnm_free(new_image);
-  free(comp);
-  free(as);
-  free(ps);
-  free(new_as);
-  free(new_as_cen);
   free(g_img);
 
   fprintf(stderr, "OK\n");
