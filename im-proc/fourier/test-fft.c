@@ -274,7 +274,7 @@ test_add_frequencies(char* name)
   for (int j = 0; j < cols; j++)
     for (int i = 0; i < rows; i++)
       for (int chan = 0; chan <= 2; chan++){
-        short valas = (short) (pow(fabs(new_as_cen[i + (rows*j)])/amax,0.)*255);
+        short valas = (short) (pow(fabs(new_as_cen[i + (rows*j)])/amax,0.2)*255);
         pnm_set_component(new_image_amp, i, j, chan, valas);
       } 
 
