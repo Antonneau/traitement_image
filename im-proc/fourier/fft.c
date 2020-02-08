@@ -9,7 +9,7 @@ forward(int rows, int cols, unsigned short* g_img)
 {
   unsigned int size = rows*cols;
   fftw_complex *in = malloc(size*sizeof(fftw_complex));
-  fftw_complex *out = malloc(size*sizeof(fftw_complex));  // A probablement changer
+  fftw_complex *out = malloc(size*sizeof(fftw_complex));  
   if (in == NULL || out == NULL){
     fprintf(stderr, "Cannot allocate more memory (in forward)\n");
     exit(EXIT_FAILURE);
@@ -48,7 +48,6 @@ backward(int rows, int cols, fftw_complex* freq_repr)
   for(unsigned int i = 0; i < size; i++){
     // Set the normalizing value to the gray-scaled image
     double real = creal(out[i])/(size);
-    //if(real <0.0) printf("anto a raison ");
     if(real <0) img[i]=0;
     else if (real > 255) img[i] = 255;
     else img[i] = (unsigned short) real; 

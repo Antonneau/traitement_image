@@ -14,8 +14,7 @@
  * @param cols the number of columns of the input image
  * @param rows the number of lines of the input image
  * @param ims the input image
- * @param imd the gray-scale image
- * @return the gray-scale input image
+ * @param imd the gray-scale version of the input image
  */
 void
 generate_gray_image(int cols, int rows, pnm ims, unsigned short *imd)
@@ -37,7 +36,6 @@ generate_gray_image(int cols, int rows, pnm ims, unsigned short *imd)
  * @param name the image name
  * @param prefix the prefix of the image name
  * @param imd the image to save
- * @return The offset (index where the filename is in the string)
  */
 void
 save_image(char *name, char* prefix, pnm imd){
@@ -53,8 +51,7 @@ save_image(char *name, char* prefix, pnm imd){
  * @param cols the number of columns of the input image
  * @param rows the number of lines of the input image
  * @param ims the input list of gray pixels
- * @param imd the gray-scale image
- * @return the reconstructed gray-scale input image
+ * @param imd the gray-scale image to compute
  */
 void
 set_comp(int cols, int rows, unsigned short* ims, pnm imd)
@@ -144,7 +141,7 @@ test_reconstruction(char* name)
  * @param cols the number of columns of the input image
  * @param rows the number of lines of the input image
  * @param tab the input image
- * @return the gray-scale input image
+ * @return the centered gray-scale input image
  */
 float* decenter(int cols, int rows, float *tab){
   float *tmp = malloc(cols*rows*sizeof(float));
