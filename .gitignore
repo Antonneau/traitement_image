@@ -20,3 +20,5 @@ im-proc/bcl-basis/test-bcl
 im-proc/fourier/test-fft
 
 .vs/
+
+*.gz
