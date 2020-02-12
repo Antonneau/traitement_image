@@ -5,6 +5,20 @@
 
 #define NB_PARAMS 3
 
+/**
+ * @brief Puts the same pixel depending on the factor.
+ * @param ims the image to get the pixel
+ * @param imd the image to write
+ * @param col the index of the column write
+ * @param row the index of the row to write
+ * @param factor the zoom factor
+ */
+void
+put_pixels(pnm ims, pnm imd, int col, int row, int factor)
+{
+    //TODO
+}
+
 void
 usage(const char *s)
 {
@@ -27,15 +41,15 @@ main(int argc, char* argv){
 
     for(int i = 0; i < rows, i++){
         for(int j = 0; j < cols; i++){
-
-            for(int f = 0; f < factor; f++){
-                for(int chan = 0; chan <= 2; chan++){
-                    
-
-                }
-            }
-            
+            put_pixels(ims, imd, j, i, factor);
         }
     }
+
+    pnm_save(imd, PnmRawPpm, argv[3]);
+
+    pnm_free(imd)
+    pnm_free(ims)
+
+    return EXIT_SUCCESS;
 }
 
