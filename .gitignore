@@ -22,3 +22,13 @@ im-proc/fourier/test-fft
 .vs/
 
 *.gz
+
+im-proc/zoom/filter
+
+im-proc/zoom/copy
+
+im-proc/zoom/test_modif
+
+im-proc/zoom/test_rotated
+
+im-proc/zoom/padding
