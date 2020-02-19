@@ -1,44 +1,51 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
+#include <stdbool.h>
 #include <bcl.h>
 
-#define NB_PARAMS 4
-
 /**
- * @brief Rotates an image at 90 degres 
+ * @brief Rotates an image at 90 degrees
  * @param w the image width 
  * @param h the image height
  * @param ims the image source
  * @param imd the rotated image
+ * @param revert if the user wants a -90 degree rotation
  */
 void
-rotate_image(int w, int h, pnm ims, pnm imd){
+rotate_image(int w, int h, pnm ims, pnm imd, bool revert){
     for(int i = 0; i < h; i++){
         for(int j = 0; j < w; j++){
             for(int c = 0; c < 3; c++){
                 unsigned short comp = pnm_get_component(ims, j, i, c);
-                pnm_set_component(imd, i, h-j-1, c, comp);
+                if(!revert)
+                    pnm_set_component(imd, i, h-j-1, c, comp);
+                else
+                    pnm_set_component(imd, h-i-1, j, c, comp);
             }
         }
     }
-    // TO DO
-    // Donner la possibilité de le tourner dans un sens et dans l'autre
 }
 
 /**
  * @brief Computes the filter filter_num and saves it in a new image
- * @param 
- * @param 
- * @param 
- * @param 
- * @param 
- * @param 
+ * @param w The width of the original picture
+ * @param h The height of the original picture
+ * @param factor The size factor
+ * @param filter_num Index of the filter.
+ *                   0 = box
+ *                   1 = tent
+ *                   2 = bell
+ *                   3 = mitch
+ * @param ims The source image
+ * @param imd The destination image
  */
 void 
 compute_filter(int w, int h, int factor, int filter_num, pnm ims, pnm imd){
     for(int i = 0; i < h * factor; i++){
-        for(int j = 0; j < w * factor-1; j++){
+    //printf("Tour de boucle...\n");
+        for(int j = 0; j < (w * factor)-1; j++){
             float col = j / factor;
             float WF = (filter_num + 1) / 2;
             // Getting left
@@ -70,6 +77,9 @@ compute_filter(int w, int h, int factor, int filter_num, pnm ims, pnm imd){
                             break;
                         // Tent
                         case 1:
+                            if(x >= -1 && x <= 1){
+                                sum[s] += pnm_get_component(ims, k, i/factor, s) * (1 - abs(x));
+                            }
                             break;
                         // Bell
                         case 2:
@@ -81,21 +91,42 @@ compute_filter(int w, int h, int factor, int filter_num, pnm ims, pnm imd){
                 }
                 // Putting each color in the new image
                 for(int s = 0; s < 3; s++){
-                    pnm_set_component(imd, col, i+x, s, sum[s]);
+                    int row = i + x;
+                    if(row < 0)
+                        row = 0;
+                    /*if(row > h*factor){
+                        row = h*factor;
+                    }*/
+                    int column = col*factor;
+                    //printf("%d, while width is %d\n", column, w*factor);
+                    if(column >= w*factor){
+                        column = w*(factor-1);
+                    }
+                    // TO DO
+                    // Correct this for the tent filter
+                    pnm_set_component(imd, column, row, s, sum[s]);
                 }
             }
         }
     }
 }
 
+/**
+ * @brief Reconstruct the zoomed image depending on two pictures : the picture with the filter computed on its columns and on its lines.
+ * @param factor the size factor 
+ * @param col_ims The filtered image on columns
+ * @param line_ims The filtered image on lines
+ * @param imd the reconstructed image
+ */
 void
 reconstruct_image(int factor, pnm col_ims, pnm line_ims, pnm imd)
 {
-    for(int i = 0; i < pnm_get_width(imd); i++){
-        for(int j = 0; j < pnm_get_height(imd); j++){
+    for(int i = 0; i < pnm_get_height(imd); i++){
+        for(int j = 0; j < pnm_get_width(imd); j++){
             for(int c = 0; c < 3; c++){
                 unsigned short sum_comp = 0;
-                sum_comp = pnm_get_component(col_ims, j, i, c) + pnm_get_component(line_ims, j, i, c);
+                sum_comp = pnm_get_component(col_ims, factor*(j/factor), factor*(i/factor), c) 
+                         + pnm_get_component(line_ims, factor*(j/factor), factor*(i/factor), c);
                 pnm_set_component(imd, j, i, c, sum_comp/2);
             }
         }
@@ -109,6 +140,8 @@ usage(const char *s)
     fprintf(stderr, "Usage : %s <factor> <filter-name> <ims> <imd>\n", s);
     exit(EXIT_FAILURE);
 }
+
+#define NB_PARAMS 4
 
 int 
 main(int argc, char** argv)
@@ -134,29 +167,30 @@ main(int argc, char** argv)
     int rows = pnm_get_height(ims);
     int factor = atoi(argv[1]);
 
+    // First computation of the filter : on columns
     pnm modified_imd = pnm_new(cols*factor, rows*factor, PnmRawPpm);
-
-    // RETOURNER L'IMAGE POUR AUSSI FAIRE L'OPERATION SUR LE LIGNES
-    // CAR L'OPERATION NE SE FAIT QU'EN COLONNES
     compute_filter(cols, rows, factor, filter_num, ims, modified_imd);
 
-    pnm new_ims = pnm_new(cols, rows, PnmRawPpm);
+    // Second computation of the filter : on lines (we rotate the original picture)
     pnm rotated_imd = pnm_new(cols*factor, rows*factor, PnmRawPpm);
-    rotate_image(cols, rows, ims, new_ims);
-    compute_filter(cols, rows, factor, filter_num, new_ims, rotated_imd);
+    pnm rotated_ims = pnm_new(cols, rows, PnmRawPpm);
+    rotate_image(cols, rows, ims, rotated_ims, false);
+    compute_filter(cols, rows, factor, filter_num, rotated_ims, rotated_imd);
     
+    // Reconstruction of the image
+    pnm rerotated_imd = pnm_new(cols*factor, rows*factor, PnmRawPpm);
+    rotate_image(cols*factor, rows*factor, rotated_imd, rerotated_imd, true);
     pnm imd = pnm_new(cols*factor, rows*factor, PnmRawPpm);
-    reconstruct_image(factor, modified_imd, rotated_imd, imd);
+    reconstruct_image(factor, modified_imd, rerotated_imd, imd);
 
     pnm_save(imd, PnmRawPpm, argv[4]);
-    pnm_save(modified_imd, PnmRawPpm, "test_modif");
-    pnm_save(rotated_imd, PnmRawPpm, "test_rotated");
 
-    pnm_free(imd);
     pnm_free(ims);
-    pnm_free(new_ims);
+    pnm_free(rotated_ims);
     pnm_free(modified_imd);
     pnm_free(rotated_imd);
+    pnm_free(rerotated_imd);
+    pnm_free(imd);
 
     return EXIT_SUCCESS;
 }
