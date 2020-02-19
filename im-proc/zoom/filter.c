@@ -68,26 +68,34 @@ compute_filter(int w, int h, int factor, int filter_num, pnm ims, pnm imd){
                 float x = k - col;
                 // For each color
                 for(int s = 0; s < 3; s++){
+                    float filter = 0;
                     switch(filter_num){
                         // Box
                         case 0:
-                            if(x >= -0.5 && x < 0.5){
-                                sum[s] += pnm_get_component(ims, k, i/factor, s);
-                            }
+                            if(x >= -0.5 && x < 0.5)
+                                filter = 1.0;
                             break;
                         // Tent
                         case 1:
-                            if(x >= -1 && x <= 1){
-                                sum[s] += pnm_get_component(ims, k, i/factor, s) * (1 - abs(x));
-                            }
+                            if(x >= -1 && x <= 1)
+                                filter = 1 - abs(x);
                             break;
                         // Bell
                         case 2:
+                            if(abs(x) <= 0.5)
+                                filter = -pow(x,2) + 0.75;
+                            else if(abs(x) > 0.5 && abs(x) <= 1.5)
+                                filter = 0.5 * pow((abs(x)-1.5), 2);
                             break;
                         // Mitch
                         case 3:
+                            if(x >= -1 && x <= 1)
+                                filter = ((7/6) * pow(abs(x), 3)) - (2*pow(x, 2)) + (8/9);
+                            else if ((x >= -2 && x <= -1) || (x >= 1 && x <= 2))
+                                filter = -((7/18) * pow(abs(x), 3)) + (2*pow(x, 2)) - ((10/3) * abs(x)) + (16/9);
                             break;
                     }
+                    sum[s] += pnm_get_component(ims, k, i/factor, s) * filter;
                 }
                 // Putting each color in the new image
                 for(int s = 0; s < 3; s++){
