@@ -76,8 +76,6 @@ backward(int rows, int cols, fftw_complex* freq_repr, int prev_size)
     if(real <0) img[i]=0;
     else if (real > 255) img[i] = 255;
     else img[i] = (unsigned short) real; 
-
-    printf("%d - %d\n", img[i], i);
   } 
 
   free(d_freq_repr);

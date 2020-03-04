@@ -15,11 +15,10 @@
  * @param imd the gray-scale image to compute
  */
 void
-set_comp(int cols, int rows, unsigned short* ims, pnm imd)
+set_comp(int cols, int rows, unsigned short* ims, pnm imd, int chan)
 {
   for (int j = 0; j < cols; j++)
     for (int i = 0; i < rows; i++)
-      for (int chan = 0; chan <= 2; chan++)
         pnm_set_component(imd, i, j, chan, ims[i + (rows*j)]);
 }
 
@@ -31,15 +30,12 @@ set_comp(int cols, int rows, unsigned short* ims, pnm imd)
  * @param imd the new gray-scaled image
  **/
 void
-generate_gray_image(int cols, int rows, pnm ims, unsigned short *imd)
+get_short_value(int cols, int rows, pnm ims, unsigned short *imd, int c)
 {
     // Constructing the gray image
     for (int j = 0; j < cols; j++)
         for (int i = 0; i < rows; i++){
-            unsigned short component = 0;
-            for (int c = 0; c < 3; c++)
-                component += pnm_get_component(ims, i, j, c);
-            imd[i + (rows*j)] = component/3; 
+            imd[i + (rows*j)] = pnm_get_component(ims, i, j, c); 
         }
 }
 
@@ -81,22 +77,26 @@ do_padding(pnm ims, pnm imd, int factor)
     int rows = pnm_get_height(ims);
 
     unsigned short *g_img = malloc(rows*cols*sizeof(unsigned short));
+
     fftw_complex * comp = (fftw_complex *) malloc((rows*factor*cols*factor)*sizeof(fftw_complex));
 
-    generate_gray_image(cols, rows, ims, g_img);
+    for(int chan=0; chan<3; chan++){
 
-    fftw_complex *precomp = forward(rows, cols, g_img);
+        get_short_value(cols, rows, ims, g_img, chan);
 
-    resize_complex_array(precomp,comp,cols,rows,factor);
+        fftw_complex *precomp = forward(rows, cols, g_img);
 
-    unsigned short *new_g_img = backward(rows*factor, cols*factor, comp, cols*rows);
+        resize_complex_array(precomp,comp,cols,rows,factor);
 
-    set_comp(cols*factor,rows*factor, new_g_img, imd);
+        unsigned short *new_g_img = backward(rows*factor, cols*factor, comp, cols*rows);
 
-    free(g_img);
-    free(new_g_img);
-    free(precomp);
-    free(comp);
+        set_comp(cols*factor,rows*factor, new_g_img, imd, chan); 
+        
+        free(precomp);
+        free(new_g_img);   
+    }
+        free(g_img);
+        free(comp);
 }
 
 void
