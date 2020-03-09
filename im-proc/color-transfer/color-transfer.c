@@ -24,10 +24,45 @@ float RGB2LMS[D][D] = {
 
 void
 process(char *ims, char *imt, char* imd){
-  (void) ims;
-  (void) imt;
-  (void) imd;
+  // Source image (where we take the colors)
+  pnm source = pnm_load(ims);
+  int source_rows = pnm_get_height(source);
+  int source_cols = pnm_get_width(source);
+  // Transfer image (where we transfer the colors)
+  pnm transfer = pnm_load(imt);
+  int transfer_rows = pnm_get_height(transfer);
+  int transfer_cols = pnm_get_width(transfer);
 
+  // Result image
+  pnm res = pnm_new(transfer_cols, transfer_rows, PnmRawPpm);
+  // RGB List (transfer image)
+  /* Peut-etre a modifier, je sais pas si tmp est bien comme ceci, mais
+  l'idee est de faire un tableau 3D avec i = row, j = col et c = color */
+  int data_rgb[transfer_rows * transfer_cols * 3];
+  int (*rgb)[transfer_rows][3] = (int (*)[transfer_rows][3])data_rgb;
+  for(int i = 0; i < transfer_rows; i++){
+    for (int j = 0; j < transfer_cols; j++){
+      for(int c = 0; c < 3; c++){
+        rgb[i][j][c] = pnm_get_component(transfer, i, j, c);
+        printf("Printing at index [%d][%d][%d]. Value : %d\n", i, j, c, rgb[i][j][c]);
+      }
+    }
+  }
+
+  int data_lms[transfer_rows * transfer_cols * 3];
+  int (*lms)[transfer_rows][3] = (int (*)[transfer_rows][3])data_lms;
+  /* TODO */
+  // Convertion RGB -> LMS
+  // Log LMS
+  // Conversion LMS -> Lab
+  // Calculer l*, a* et b*
+  // Calculer l', a' et b'
+  // Rajouter aux resultats précedents la moyenne de l', a' et b'
+  // Conversion l'a'b' -> log LMS
+  // Conversion log LMS -> LMS
+  // Conversion LMS -> RGB
+
+  pnm_save(res, PnmRawPpm, imd);
 }
 
 void
