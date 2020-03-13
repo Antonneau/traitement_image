@@ -42,68 +42,32 @@ float LMS2RGB[D][D] = {
 };
 
 void
-rgb_to_lab(pnm ims, float *res)
+lms_to_lab(pnm ims, float *res)
 {
-  float (*tmp)[pnm_get_height(ims)][3] = (float (*)[pnm_get_height(ims)][3])res;
   for(int i = 0; i < pnm_get_height(ims); i++){
     for (int j = 0; j < pnm_get_width(ims); j++){
-      // rgb
-      for(int c = 0; c < 3; c++){
-        tmp[i][j][c] = (float) pnm_get_component(ims, i, j, c);
-      }
-      // rgb to lms
-      float tmp_lms;
-      float tmp_lab;
       for(int mat_line = 0; mat_line < D; mat_line++){
-        tmp_lms = 0.0;
+        float tmp_lab = 0.0;
         for(int mat_col = 0; mat_col < D; mat_col++){
-          tmp_lms += RGB2LMS[mat_line][mat_col] * tmp[i][j][mat_col];
+          tmp_lab += LOGLMS2LAB[mat_line][mat_col] * res[i*pnm_get_height(ims) + j*3 + mat_col];
         }
-        // lms to log lms
-        tmp[i][j][mat_line] = log(tmp_lms);
-        // lab
-        tmp_lab = 0.0;
-        for(int mat_col = 0; mat_col < D; mat_col++){
-          tmp_lab += LOGLMS2LAB[mat_line][mat_col] * tmp[i][j][mat_col];
-        }
-        tmp[i][j][mat_line] = tmp_lab;
-
+        res[i*pnm_get_height(ims) + j*3 + mat_line] = tmp_lab;
       }
     }
   }
 }
 
 void
-lab_to_rgb(pnm imd, float *res)
+lab_to_lms(pnm ims, float *res)
 {
-  float (*tmp)[pnm_get_height(imd)][3] = (float (*)[pnm_get_height(imd)][3])res;
-  for(int i = 0; i < pnm_get_height(imd); i++){
-    for (int j = 0; j < pnm_get_width(imd); j++){
-      // lab to log lms
-      float tmp_lab;
-      float tmp_loglms;
-      float tmp_lms;
+  for(int i = 0; i < pnm_get_height(ims); i++){
+    for (int j = 0; j < pnm_get_width(ims); j++){
       for(int mat_line = 0; mat_line < D; mat_line++){
-        // lab
-        tmp_lab = 0.0;
+        float tmp_loglms = 0.0;
         for(int mat_col = 0; mat_col < D; mat_col++){
-          tmp_lab += LAB2LOGLMS[mat_line][mat_col] * tmp[i][j][mat_col];
+          tmp_loglms += LAB2LOGLMS[mat_line][mat_col] * res[i*pnm_get_height(ims) + j*3 + mat_col];
         }
-        tmp_loglms = 1.0;
-        for(int pow = 0; pow < 10-1; pow++){
-          tmp_loglms *= tmp_lab;
-        }
-
-        tmp[i][j][mat_line] = tmp_lms;
-
-        for(int mat_col = 0; mat_col < D; mat_col++){
-          tmp_lms += LMS2RGB[mat_line][mat_col] * tmp[i][j][mat_col];
-        }
-        // lms to log lms
-        tmp[i][j][mat_line] = tmp_lms;
-      }
-      for(int c = 0; c < 3; c++){
-        pnm_set_component(imd, i, j, c, (short) tmp[i][j][c]);
+        res[i*pnm_get_height(ims) + j*3 + mat_line] = pow(10.0, tmp_loglms);
       }
     }
   }
@@ -138,24 +102,79 @@ process(char *ims, char *imt, char* imd){
   int transfer_cols = pnm_get_width(transfer);
 
   // RGB List (transfer image)
-  float *data_source = malloc(source_rows * source_cols * 3 * sizeof(float));
+  float *data_source = (float*)calloc(source_rows * source_cols * 3, sizeof(float));
   if(data_source == NULL)
     exit(EXIT_FAILURE);
-  float *data_transfer = malloc(transfer_rows * transfer_cols * 3 * sizeof(float));
+  float *data_transfer = (float*)calloc(transfer_rows * transfer_cols * 3, sizeof(float));
   if(data_transfer == NULL)
     exit(EXIT_FAILURE);
-  // RGB to L-alpha-beta
-  printf("Computing l-alpha-beta for source image...\n");
-  rgb_to_lab(source, data_source);
-  printf("Source done. Now computing for transfer image...\n");
-  rgb_to_lab(transfer, data_transfer);
-
+    
+  // Result image
+  pnm res = pnm_new(transfer_cols, transfer_rows, PnmRawPpm);
+  
+  float minValue[3] = {INFINITY, INFINITY, INFINITY};
+  float maxValue[3] = {-INFINITY, -INFINITY, -INFINITY};
+  for(int i = 0; i < transfer_rows; i++){
+    for (int j = 0; j < transfer_cols; j++){
+      for(int c = 0; c < 3; c++){
+        data_transfer[i*transfer_rows + j*3 + c] = (float) pnm_get_component(transfer, i, j, c);
+      }
+      // RGB -> LMS
+      for(int mat_line = 0; mat_line < D; mat_line++){
+        float tmp_lms = 0.0;
+        for(int mat_col = 0; mat_col < D; mat_col++){
+          tmp_lms += RGB2LMS[mat_line][mat_col] * data_transfer[i*transfer_rows + j*3 + mat_col];
+        }
+        data_transfer[i*transfer_rows + j*3 + mat_line] = tmp_lms;
+        /*if(data_transfer[i*transfer_rows + j*3 + mat_line] < 0.0)
+          data_transfer[i*transfer_rows + j*3 + mat_line] = 0.0;*/
+        //pnm_set_component(res, i, j, mat_line, data_transfer[i*transfer_rows + j*3 + mat_line]);
+      }
+      // LMS -> RGB
+      for(int mat_line = 0; mat_line < D; mat_line++){
+        float tmp_rgb = 0.0;
+        for(int mat_col = 0; mat_col < D; mat_col++){
+          tmp_rgb += LMS2RGB[mat_line][mat_col] * data_transfer[i*transfer_rows + j*3 + mat_col];
+        }
+        data_transfer[i*transfer_rows + j*3 + mat_line] = tmp_rgb;
+        
+        if (minValue[mat_line] > tmp_rgb)
+          minValue[mat_line] = tmp_rgb;
+        if (maxValue[mat_line] < tmp_rgb)
+          maxValue[mat_line] = tmp_rgb;
+        //pnm_set_component(res, i, j, mat_line, data_transfer[i*transfer_rows + j*3 + mat_line]);
+      }
+      //printf("\n");
+    }
+  }
+  
+  for(int i = 0; i < transfer_rows; i++){
+    for (int j = 0; j < transfer_cols; j++){
+      for(int c = 0; c < D; c++){
+        //printf("min : %f, %f, %f\nmax : %f, %f, %f\n", minValue[0], minValue[1], minValue[2], maxValue[0], maxValue[1], maxValue[2]);
+        float norm = ((255 - 0) / (maxValue[c] - minValue[c])) * data_transfer[i*transfer_rows + j*3 + c] 
+                   + (0 * maxValue[c] - 255 * minValue[c]) / (maxValue[c] - minValue[c]);
+        pnm_set_component(res, i, j, c, norm);
+      }
+    }
+  }
+  /*
+  for(int i = 0; i < pnm_get_height(transfer); i++){
+    for (int j = 0; j < pnm_get_width(transfer); j++){
+      for (int c = 0; c < D; c++){
+        printf("%f, ", data_transfer[i*j + j*3 + c]);
+      }
+      printf("\n");
+    }
+  }
+  */
+  pnm_save(res, PnmRawPpm, imd);
   // <l-alpha-beta>
   /*float source_lab_avg[3] = {0.0, 0.0, 0.0};
   float transfer_lab_avg[3] = {0.0, 0.0, 0.0};
   compute_average(source, data_source, source_lab_avg);
   compute_average(transfer, data_transfer, transfer_lab_avg);
- 
+  
   for(int c = 0; c < 3; c++){
     printf("Computed average for :\nSource : %f\nTransfer : %f\n", source_lab_avg[c], transfer_lab_avg[c]);
   }*/
@@ -165,10 +184,17 @@ process(char *ims, char *imt, char* imd){
   // Calculer l', a' et b'
   // Rajouter aux resultats précedents la moyenne de l', a' et b'
 
-  // Result image
-  pnm res = pnm_new(transfer_cols, transfer_rows, PnmRawPpm);
-  lab_to_rgb(res, data_transfer);
-  pnm_save(res, PnmRawPpm, imd);
+  /*
+  for(int i = 0; i < pnm_get_height(res); i++){
+    for (int j = 0; j < pnm_get_width(res); j++){
+      for (int c = 0; c < D; c++){
+        printf("%f, ", data_transfer[i*j + j*c + c]);
+      }
+      printf("\n");
+    }
+  }
+  */
+
   pnm_free(source);
   pnm_free(transfer);
   pnm_free(res);
