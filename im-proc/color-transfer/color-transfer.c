@@ -25,7 +25,7 @@ float RGB2LMS[D][D] = {
 float LOGLMS2LAB[D][D] = {
   {0.5573,  0.5773,  0.5773},
   {0.4082,  0.4082, -0.8164},
-  {0.0141, -0.0141,     0.0}
+  {0.7071, -0.7071,     0.0}
 };
 
 float LAB2LOGLMS[D][D] = {
@@ -34,59 +34,204 @@ float LAB2LOGLMS[D][D] = {
   {0.5573, -0.8164,     0.0}
 };
 
-
 float LMS2RGB[D][D] = {
   { 4.4679, -3.5873,  0.1193},
   {-1.2186,  2.3809, -0.1624},
   { 0.0497, -0.2439,  1.2045}
 };
 
+// Normalization values
+float minValue[D] = { INFINITY,  INFINITY,  INFINITY};
+float maxValue[D] = {-INFINITY, -INFINITY, -INFINITY};
+float max = 255.0;
+float min = 0.0;
+
+/**
+ * @brief Initializes the data list from the pixels in "ims"
+ * @param ims the input image
+ * @param data the data list to initialize
+ */
 void
-lms_to_lab(pnm ims, float *res)
+init_data(pnm ims, float* data)
 {
-  for(int i = 0; i < pnm_get_height(ims); i++){
-    for (int j = 0; j < pnm_get_width(ims); j++){
+  int rows = pnm_get_height(ims);
+  int cols = pnm_get_width(ims);
+  float (*tmp)[cols][3] = (float (*)[cols][3])data;
+  for(int i = 0; i < rows; i++){
+    for (int j = 0; j < cols; j++){
+      for(int c = 0; c < 3; c++){
+        tmp[i][j][c] = pnm_get_component(ims, i, j, c);
+      }
+    }
+  }
+}
+
+/**
+ * @brief Converts the data from RGB color space to L-alpha-beta color space
+ * @param ims the input image (where we get the dimensions)
+ * @param data the RGB color space data to convert
+ */
+void
+rgb_to_lalphabeta(pnm ims, float* data)
+{
+  int rows = pnm_get_height(ims);
+  int cols = pnm_get_width(ims);
+  float (*tmp)[cols][3] = (float (*)[cols][3])data;
+  for(int i = 0; i < rows; i++){
+    for (int j = 0; j < cols; j++){
+      float tmp_transfer_lms[3] = {0.0, 0.0, 0.0};
+      // RGB -> LMS
+      for(int mat_line = 0; mat_line < D; mat_line++){
+        float tmp_lms = 0.0;
+        for(int mat_col = 0; mat_col < D; mat_col++){
+          tmp_lms += RGB2LMS[mat_line][mat_col] * tmp[i][j][mat_col];
+        }
+        tmp_transfer_lms[mat_line] = tmp_lms;
+      }
+      // LMS -> L-alpha-beta
       for(int mat_line = 0; mat_line < D; mat_line++){
         float tmp_lab = 0.0;
         for(int mat_col = 0; mat_col < D; mat_col++){
-          tmp_lab += LOGLMS2LAB[mat_line][mat_col] * res[i*pnm_get_height(ims) + j*3 + mat_col];
+          float tmp_loglms = log10f(tmp_transfer_lms[mat_col]);
+          if(tmp_transfer_lms[mat_col] == 0.0)
+            tmp_loglms = 0.0;
+          tmp_lab += LOGLMS2LAB[mat_line][mat_col] * tmp_loglms;
         }
-        res[i*pnm_get_height(ims) + j*3 + mat_line] = tmp_lab;
+        tmp[i][j][mat_line] = tmp_lab;
       }
     }
   }
 }
 
+/**
+ * @brief Converts the data from L-alpha-beta color space to RGB color space
+ * @param ims the input image (where we get the dimensions)
+ * @param data the L-alpha-beta color space data to convert
+ */
 void
-lab_to_lms(pnm ims, float *res)
+lalphabeta_to_rgb(pnm ims, float* data)
 {
-  for(int i = 0; i < pnm_get_height(ims); i++){
-    for (int j = 0; j < pnm_get_width(ims); j++){
+  int rows = pnm_get_height(ims);
+  int cols = pnm_get_width(ims);
+  float (*tmp)[cols][3] = (float (*)[cols][3])data;
+  for(int i = 0; i < rows; i++){
+    for (int j = 0; j < cols; j++){
+      float tmp_transfer_lms[3] = {0.0, 0.0, 0.0};
+      // L-alpha-beta -> LMS
       for(int mat_line = 0; mat_line < D; mat_line++){
         float tmp_loglms = 0.0;
+        // L-alpha-beta -> log(LMS)
         for(int mat_col = 0; mat_col < D; mat_col++){
-          tmp_loglms += LAB2LOGLMS[mat_line][mat_col] * res[i*pnm_get_height(ims) + j*3 + mat_col];
+          tmp_loglms += LAB2LOGLMS[mat_line][mat_col] * tmp[i][j][mat_col];
         }
-        res[i*pnm_get_height(ims) + j*3 + mat_line] = pow(10.0, tmp_loglms);
+        // log(LMS) -> LMS
+        tmp_transfer_lms[mat_line] = pow(10.0, tmp_loglms);
+      }
+      // LMS -> RGB
+      for(int mat_line = 0; mat_line < D; mat_line++){
+        float tmp_rgb = 0.0;
+        for(int mat_col = 0; mat_col < D; mat_col++){
+          tmp_rgb += LMS2RGB[mat_line][mat_col] * tmp_transfer_lms[mat_col];
+        }
+        
+        if (tmp_rgb < minValue[mat_line]){
+          minValue[mat_line] = tmp_rgb;
+        }
+        if (tmp_rgb > maxValue[mat_line]){
+          maxValue[mat_line] = tmp_rgb;
+        }
+        
+        tmp[i][j][mat_line] = tmp_rgb;
+      }
+    }
+  }
+}
+
+/**
+ * @brief Computes the average of each channel in "data"
+ * @param ims the input image (where we get the dimensions)
+ * @param data the data used to get the average
+ * @param avg the computed average (return value)
+ */
+void
+compute_average(pnm ims, float* data, float* avg)
+{
+  int rows = pnm_get_height(ims);
+  int cols = pnm_get_width(ims);
+  float (*tmp)[cols][3] = (float (*)[cols][3])data;
+  for(int i = 0; i < rows; i++){
+    for (int j = 0; j < cols; j++){
+      for(int c = 0; c < D; c++){
+        avg[c] += tmp[i][j][c];
+      }
+    }
+  }
+  for(int c = 0; c < D; c++){
+    avg[c] = avg[c] / (rows*cols);
+  }
+}
+
+/**
+ * @brief Computes the standard deviation of each channel in "data"
+ * @param ims the input image (where we get the dimensions)
+ * @param data the data used to get the standard deviation
+ * @param avg the average used in the standard deviation formula
+ * @param res the computed standard deviation (return value)
+ */
+void
+compute_standard_deviation(pnm ims, float* data, float* avg, float* res)
+{
+  int rows = pnm_get_height(ims);
+  int cols = pnm_get_width(ims);
+  float (*tmp)[cols][3] = (float (*)[cols][3])data;
+  for(int i = 0; i < rows; i++){
+    for (int j = 0; j < cols; j++){
+      for(int c = 0; c < D; c++){
+        res[c] += (tmp[i][j][c] - avg[c]) * (tmp[i][j][c] - avg[c]);
+      }
+    }
+  }
+  for(int c = 0; c < D; c++){
+    res[c] = sqrt((1.0/rows*cols) * res[c]);
+  }
+}
+
+/**
+ * @brief Applies the color correction
+ * @param ims the input image (where we get the dimensions)
+ * @param data the data used to get the standard deviation
+ * @param avg the average used in the standard deviation formula
+ * @param res the computed standard deviation (return value)
+ */
+void
+color_correction(pnm ims, float* data, float* avg_src, float* avg_trf, float* std_dev_src, float* std_dev_trf)
+{
+  int rows = pnm_get_height(ims);
+  int cols = pnm_get_width(ims);
+  float (*tmp)[cols][3] = (float (*)[cols][3])data;
+  for(int i = 0; i < rows; i++){
+    for (int j = 0; j < cols; j++){
+      for(int c = 0; c < D; c++){
+        tmp[i][j][c] = (std_dev_src[c] / std_dev_trf[c]) * (tmp[i][j][c] - avg_trf[c]) + avg_src[c];
       }
     }
   }
 }
 
 void
-compute_average(pnm ims, float *src, float *res)
+construct_image(pnm ims, float* data)
 {
-  //float (*tmp)[pnm_get_height(ims)][3] = (float (*)[pnm_get_height(ims)][3])src;
-  for(int i = 0; i < pnm_get_height(ims); i++){
-    float line_tot[3]= {0.0,0.0,0.0};
-    for (int j = 0; j < pnm_get_width(ims); j++){
-      for(int c = 0; c < 3; c++){
-        line_tot[c] += src[i*j + j + c];
-        printf("New value for transfer sum : %f\n", line_tot[c]);
+  int rows = pnm_get_height(ims);
+  int cols = pnm_get_width(ims);
+  float (*tmp)[cols][3] = (float (*)[cols][3])data;
+  for(int i = 0; i < rows; i++){
+    for (int j = 0; j < cols; j++){
+      for(int c = 0; c < D; c++){
+        float norm = ((max - min) / (maxValue[c] - minValue[c])) * tmp[i][j][c]
+                   + (min * maxValue[c] - max * minValue[c]) / (maxValue[c] - minValue[c]);
+        pnm_set_component(ims, i, j, c, (unsigned short) norm);
       }
     }
-    for(int c=0;c<3;c++)
-      res[c]+= line_tot[c]/ (pnm_get_width(ims)* pnm_get_height(ims));
   }
 }
 
@@ -109,91 +254,36 @@ process(char *ims, char *imt, char* imd){
   if(data_transfer == NULL)
     exit(EXIT_FAILURE);
     
-  // Result image
-  pnm res = pnm_new(transfer_cols, transfer_rows, PnmRawPpm);
-  float (*tmp_transfer)[transfer_cols][3] = (float (*)[transfer_cols][3])data_transfer;
   // Getting the components
-  for(int i = 0; i < transfer_rows; i++){
-    for (int j = 0; j < transfer_cols; j++){
-      for(int c = 0; c < 3; c++){
-        tmp_transfer[i][j][c] = pnm_get_component(transfer, i, j, c);
-      }
-    }
-  }
+  init_data(source, data_source);
+  init_data(transfer, data_transfer);
   
-  // Processing
-  for(int i = 0; i < transfer_rows; i++){
-    for (int j = 0; j < transfer_cols; j++){
-      float tmp_transfer_lms[3] = {0.0, 0.0, 0.0};
-      float tmp_transfer_lab[3] = {0.0, 0.0, 0.0};
-      // RGB -> LMS
-      for(int mat_line = 0; mat_line < D; mat_line++){
-        float tmp_lms = 0.0;
-        for(int mat_col = 0; mat_col < D; mat_col++){
-          tmp_lms += RGB2LMS[mat_line][mat_col] * tmp_transfer[i][j][mat_col];
-        }
-        tmp_transfer_lms[mat_line] = tmp_lms;
-      }
-      // LMS -> L-alpha-beta
-      for(int mat_line = 0; mat_line < D; mat_line++){
-        float tmp_lab = 0.0;
-        for(int mat_col = 0; mat_col < D; mat_col++){
-          float tmp_loglms = log10f(tmp_transfer_lms[mat_col]);
-          if(tmp_transfer_lms[mat_col] == 0.0)
-            tmp_loglms = 0.0;
-          tmp_lab += LOGLMS2LAB[mat_line][mat_col] * tmp_loglms;
-        }
-        tmp_transfer_lab[mat_line] = tmp_lab;
-      }
-      // L-alpha-beta -> LMS
-      for(int mat_line = 0; mat_line < D; mat_line++){
-        float tmp_loglms = 0.0;
-        // L-alpha-beta -> log(LMS)
-        for(int mat_col = 0; mat_col < D; mat_col++){
-          tmp_loglms += LAB2LOGLMS[mat_line][mat_col] * tmp_transfer_lab[mat_col];
-        }
-        // log(LMS) -> LMS
-        tmp_transfer_lms[mat_line] = pow(10.0, tmp_loglms);
-      }
-      // LMS -> RGB
-      for(int mat_line = 0; mat_line < D; mat_line++){
-        float tmp_rgb = 0.0;
-        for(int mat_col = 0; mat_col < D; mat_col++){
-          tmp_rgb += LMS2RGB[mat_line][mat_col] * tmp_transfer_lms[mat_col];
-        }
-        /*if (tmp_rgb < 0.0)
-          tmp_rgb = 0.0;*/
-        tmp_transfer[i][j][mat_line] = tmp_rgb;
-      }
-    }
-  }
+  // RGB to L-alpha-beta conversion
+  rgb_to_lalphabeta(source, data_source);
+  rgb_to_lalphabeta(transfer, data_transfer);
 
+  // Compute average
+  float avg_src[3] = {0.0, 0.0, 0.0};
+  float avg_trf[3] = {0.0, 0.0, 0.0};
+  compute_average(source, data_source, avg_src);
+  compute_average(transfer, data_transfer, avg_trf);
+
+  float std_dev_src[3] = {0.0, 0.0, 0.0};
+  float std_dev_trf[3] = {0.0, 0.0, 0.0};
+  compute_standard_deviation(source, data_source, avg_src, std_dev_src);
+  compute_standard_deviation(transfer, data_transfer, avg_trf, std_dev_trf);
+  
+  color_correction(transfer, data_transfer, avg_src, avg_trf, std_dev_src, std_dev_trf);
+
+  // L-alpha-beta to RGB conversion
+  lalphabeta_to_rgb(transfer, data_transfer);
+  
   // Printing pixels in the picture
-  for(int i = 0; i < transfer_rows; i++){
-    for (int j = 0; j < transfer_cols; j++){
-      for(int c = 0; c < D; c++){
-        pnm_set_component(res, i, j, c, (unsigned short) tmp_transfer[i][j][c] );
-        //printf("%f ", tmp[i][j][c]);
-      }
-      //printf("\n");
-    }
-  }
+  pnm res = pnm_new(transfer_cols, transfer_rows, PnmRawPpm);
+  construct_image(res, data_transfer);
 
+  // Saving image
   pnm_save(res, PnmRawPpm, imd);
-  // <l-alpha-beta>
-  /*float source_lab_avg[3] = {0.0, 0.0, 0.0};
-  float transfer_lab_avg[3] = {0.0, 0.0, 0.0};
-  compute_average(source, data_source, source_lab_avg);
-  compute_average(transfer, data_transfer, transfer_lab_avg);
-  
-  for(int c = 0; c < 3; c++){
-    printf("Computed average for :\nSource : %f\nTransfer : %f\n", source_lab_avg[c], transfer_lab_avg[c]);
-  }*/
-
-  /* TODO */
-  // Calculer l*, a* et b*
-  // Calculer l', a' et b'
-  // Rajouter aux resultats précedents la moyenne de l', a' et b'
 
   pnm_free(source);
   pnm_free(transfer);
