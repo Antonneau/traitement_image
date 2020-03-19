@@ -5,6 +5,7 @@
 
 #include <float.h>
 #include <math.h>
+#include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -12,7 +13,7 @@
 
 #define D 3
 #define PATCH_SIZE 2
-#define SAMPLES 100
+#define SAMPLES 200
 
 float RGB2LMS[D][D] = {
   {0.3811, 0.5783, 0.0402}, 
@@ -201,7 +202,7 @@ compute_luminance(pnm ims, int x, int y, float* data)
   std_dev = sqrt((1.0/size) * std_dev);
   //printf("Average : %f, Standard deviation : %f\n", avg, std_dev);
 
-  return (avg * 0.5) + (std_dev * 0.5);
+  return (avg ) + (std_dev);
 }
 
 int
@@ -209,11 +210,12 @@ find_luminance(float* samples, float lum)
 {
   float diff_min = INFINITY;
   int res = 0;
-  for(int i=0; i< SAMPLES*3; i+=3){
-    float diff = fabs(samples[i]-lum);
-    if(fabs(samples[i]-lum) < diff_min){
+  float (*tmp)[3] = (float (*)[3])samples;
+  for(int i=0; i< SAMPLES; i++){
+    float diff = fabs(tmp[i][0]-lum);
+    if(diff < diff_min){
       diff_min = diff;
-      res = i/3;
+      res = i;
     }
   }
   return res;
@@ -266,24 +268,31 @@ process(char *ims, char *imt, char* imd){
   // Init samples
   float *sample_list = (float*)calloc(SAMPLES * 3, sizeof(float));
   float (*tmp)[3] = (float (*)[3])sample_list;
+  srand(time(NULL));
   generate_samples(source, data_source, sample_list);
 
+  int *hist = (int*)calloc(SAMPLES, sizeof(int));
   for(int i=0;i<SAMPLES;i++){
-    printf("%f, %f, %f\n", tmp[i][0], tmp[i][1], tmp[i][2]);
+    hist[i]=0;
   }
-
   // 
   float (*tmp_transfer)[transfer_cols][3] = (float (*)[transfer_cols][3])data_transfer;
   for(int i=0;i<transfer_rows;i++){
     for(int j=0;j<transfer_cols;j++){
       float lum = compute_luminance(transfer, i, j, data_transfer);
       int index = find_luminance(sample_list, lum);
-      printf("lum value : %f for this sample : %f\n", lum, tmp[index][0]);
+      //printf("lum value : %f for this sample : %f\n", lum, tmp[index][0]);
+      hist[index]++;
       for(int c = 1; c < D; c++){
         tmp_transfer[i][j][c] = tmp[index][c];
       }
     }
   }
+
+  for(int i=0;i<SAMPLES;i++){
+    //printf("%d :   %d\n", i, hist[i]);
+  }
+
   // L-alpha-beta to RGB conversion
   lalphabeta_to_rgb(transfer, data_transfer);
   
