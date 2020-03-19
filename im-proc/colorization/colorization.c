@@ -1,6 +1,9 @@
 /**
- * @file 
- * @brief 
+ * @file colorization
+ * @brief Color the target image depending on the source image's colors.
+ *        Method from Tomihisa Welsh, Michael Ashikhmin and Klaus Mueller
+ *        From the Center for Visual Computing,
+ *        Computer Science Department, SUNY at Stony Brook
  */
 
 #include <float.h>
@@ -14,6 +17,19 @@
 #define D 3
 #define PATCH_SIZE 2
 #define SAMPLES 200
+
+/*****************************************************************
+*	          SWATCHES (description)
+*
+* Cet algorithme permet à l'utilisateur d'interagir avec la colorisation.
+* On lui laisse le choix de choisir des "swatches" qui sont des portions d'images.
+* Un swatch dans l'image source doit avoir un swatch dans l'image à coloriser.
+* Cela permet d'avoir une colorisation qui ne se fait pas sur toute l'image, mais que sur
+* certaines parties de celle-ci.
+* Cependant, si l'utilisateur utilise un swatch correspondant à une mauvaise couleur,
+* la colorisation ne sera pas bonne.
+* 
+*******************************************************************/
 
 /**
 * Matrixes we use in our operations of conversions
