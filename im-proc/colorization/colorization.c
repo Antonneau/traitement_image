@@ -15,6 +15,9 @@
 #define PATCH_SIZE 2
 #define SAMPLES 200
 
+/**
+* Matrixes we use in our operations of conversions
+*/
 float RGB2LMS[D][D] = {
   {0.3811, 0.5783, 0.0402}, 
   {0.1967, 0.7244, 0.0782},  
@@ -147,8 +150,10 @@ lalphabeta_to_rgb(pnm ims, float* data)
 }
 
 /**
- * @brief 
- * @param
+ * @brief Function to generate the random samples, taken from the transfer image
+ * @param ims the transfer image (used only for the dimensions)
+ * @param data the l alpha beta values of the transfer image
+ * @param samples the array where the samples will be stocked. Need to be initialized at 3*SAMPLES
  */
 void
 generate_samples(pnm ims, float* data, float* samples)
@@ -172,8 +177,12 @@ generate_samples(pnm ims, float* data, float* samples)
 }
 
 /**
- * @brief 
- * @param 
+ * @brief function to get the luminance value for given coordinates in the transfer image 
+ * @param ims the transfer image (used only for the dimensions)
+ * @param x the x coordinate
+ * @param y the y coordinate
+ * @param data the l alpha beta values of the transfer image
+ * @return the sum of the neighborhood average luminance and standard deviation
  */
 float
 compute_luminance(pnm ims, int x, int y, float* data)
@@ -205,6 +214,12 @@ compute_luminance(pnm ims, int x, int y, float* data)
   return (avg ) + (std_dev);
 }
 
+/**
+ * @brief function to find which pixel matches a given value
+ * @param samples the list of samples
+ * @param lum the value to compare with each sample
+ * @return the index of the closest pixel
+ */
 int
 find_luminance(float* samples, float lum)
 {
@@ -272,16 +287,13 @@ process(char *ims, char *imt, char* imd){
   generate_samples(source, data_source, sample_list);
 
   int *hist = (int*)calloc(SAMPLES, sizeof(int));
-  for(int i=0;i<SAMPLES;i++){
-    hist[i]=0;
-  }
+
   // 
   float (*tmp_transfer)[transfer_cols][3] = (float (*)[transfer_cols][3])data_transfer;
   for(int i=0;i<transfer_rows;i++){
     for(int j=0;j<transfer_cols;j++){
       float lum = compute_luminance(transfer, i, j, data_transfer);
       int index = find_luminance(sample_list, lum);
-      //printf("lum value : %f for this sample : %f\n", lum, tmp[index][0]);
       hist[index]++;
       for(int c = 1; c < D; c++){
         tmp_transfer[i][j][c] = tmp[index][c];
@@ -289,9 +301,6 @@ process(char *ims, char *imt, char* imd){
     }
   }
 
-  for(int i=0;i<SAMPLES;i++){
-    //printf("%d :   %d\n", i, hist[i]);
-  }
 
   // L-alpha-beta to RGB conversion
   lalphabeta_to_rgb(transfer, data_transfer);
