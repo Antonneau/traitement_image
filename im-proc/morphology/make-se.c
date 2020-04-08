@@ -2,6 +2,7 @@
 #include <stdio.h>
 
 #include <morphology.h>
+#include <se.h>
 
 void
 usage(char* s)
@@ -15,7 +16,8 @@ int
 main(int argc, char* argv[])
 {
   if(argc != PARAM+1) usage(argv[0]);
-  (void)argc;
-  (void)argv;
+  pnm imd = se(atoi(argv[1]), atoi(argv[2]));
+  pnm_save(imd, PnmRawPpm, argv[3]);
+  pnm_free(imd);
   return EXIT_SUCCESS;
 }
