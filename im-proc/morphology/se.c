@@ -61,12 +61,8 @@ build_line_v(pnm imd)
 {
   int size = pnm_get_width(imd);
   for(int i = 0; i < size; i++){
-    for(int j = 0; j < size; j++){
-      if (j == size/2){
-        for(int c = 0; c < 3; c++){
-          pnm_set_component(imd, i, j, c, 255);
-        }
-      }
+    for(int c = 0; c < 3; c++){
+      pnm_set_component(imd, i, size/2, c, 255);
     }
   }
 }
@@ -75,13 +71,9 @@ void
 build_line_h(pnm imd)
 {
   int size = pnm_get_width(imd);
-  for(int i = 0; i < size; i++){
-    for(int j = 0; j < size; j++){
-      if (i == size/2){
-        for(int c = 0; c < 3; c++){
-          pnm_set_component(imd, i, j, c, 255);
-        }
-      }
+  for(int j = 0; j < size; j++){
+    for(int c = 0; c < 3; c++){
+      pnm_set_component(imd, size/2, j, c, 255);
     }
   }
 }
@@ -91,12 +83,8 @@ build_diag_r(pnm imd)
 {
   int size = pnm_get_width(imd);
   for(int i = 0; i < size; i++){
-    for(int j = 0; j < size; j++){
-      if (j == size-i-1){
-        for(int c = 0; c < 3; c++){
-          pnm_set_component(imd, i, j, c, 255);
-        }
-      }
+    for(int c = 0; c < 3; c++){
+      pnm_set_component(imd, i, size-i-1, c, 255);
     }
   }
 }
@@ -106,12 +94,8 @@ build_diag_l(pnm imd)
 {
   int size = pnm_get_width(imd);
   for(int i = 0; i < size; i++){
-    for(int j = 0; j < size; j++){
-      if (j == i){
-        for(int c = 0; c < 3; c++){
-          pnm_set_component(imd, i, j, c, 255);
-        }
-      }
+    for(int c = 0; c < 3; c++){
+      pnm_set_component(imd, i, i, c, 255);
     }
   }
 }
